@@ -46,6 +46,9 @@ public:
 		void PollEvent();
 		void CallLoopFunction();
 		void EnterNextState();
+#ifdef ETR_ANDROID
+		void VRLoop(float time_step);
+#endif
 	public:
 		void RequestEnterState(State& state) { next = &state; }
 		void RequestQuit() { quit = true; }
@@ -57,6 +60,16 @@ public:
 
 	virtual void Enter() {}
 	virtual void Loop(float time_step) {}
+
+	// ---- stereo rendering ------------------------------------------
+	// A state that can be drawn twice per frame from two different
+	// viewpoints splits its Loop() into a simulation half and a drawing
+	// half, and says so here. Anything that does not (every menu screen)
+	// is rendered once and shown on a floating quad instead, so it needs
+	// no changes at all.
+	virtual bool SupportsStereo() const { return false; }
+	virtual void Update(float time_step) {}
+	virtual void Render(int eye) {}
 	virtual void Keyb(sf::Keyboard::Key key, bool release, int x, int y) {}
 	virtual void Mouse(int button, int state, int x, int y) {}
 	virtual void Motion(int x, int y) {}

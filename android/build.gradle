@@ -1,0 +1,181 @@
+// --------------------------------------------------------------------
+// Extreme Tux Racer -- Meta Quest APK
+//
+// The native side is built by the CMakeLists.txt at the repository root,
+// which compiles the game, the GLES 3 compatibility shim, the SFML
+// compatibility layer, the OpenXR integration and the platform layer
+// into libetr.so.
+//
+// The 52 MB data tree is staged into src/main/assets by stageAssets
+// below and unpacked to internal storage on first launch, so the game's
+// ordinary fopen() paths keep working unchanged.
+// --------------------------------------------------------------------
+
+plugins {
+    id 'com.android.application' version '8.13.0'
+}
+
+def dataDir    = file('../data')
+def assetsDir  = file('src/main/assets')
+
+// Release signing. Credentials live in keystore.properties, which is
+// gitignored; without it the release build is simply left unsigned rather
+// than failing, so a fresh clone still configures.
+def keystorePropsFile = file('keystore.properties')
+def keystoreProps = new Properties()
+if (keystorePropsFile.exists()) {
+    keystorePropsFile.withInputStream { keystoreProps.load(it) }
+}
+
+android {
+    namespace 'org.etr.vr'
+    compileSdk 34
+    ndkVersion '27.2.12479018'
+
+    defaultConfig {
+        applicationId 'org.etr.vr'
+        minSdk 29
+        targetSdk 32
+        versionCode 1
+        versionName '0.7.99-vr-beta1'
+
+        ndk {
+            abiFilters 'arm64-v8a'
+        }
+        externalNativeBuild {
+            cmake {
+                arguments '-DANDROID_STL=c++_shared',
+                          '-DANDROID_ARM_NEON=TRUE'
+                cppFlags '-O2'
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path '../CMakeLists.txt'
+            version '3.22.1'
+        }
+    }
+
+    sourceSets {
+        main {
+            // The app is pure NativeActivity: there is no Java at all.
+            assets.srcDirs = [assetsDir]
+            // The OpenXR loader is a prebuilt from the Khronos AAR, so it
+            // is packaged directly rather than produced by the CMake build.
+            jniLibs.srcDirs = ['../deps/openxr/jni']
+        }
+    }
+
+    androidResources {
+        // These are already-compressed formats; re-compressing them in the
+        // APK only slows extraction down and saves nothing.
+        noCompress += ['png', 'ogg', 'ttf']
+    }
+
+    signingConfigs {
+        release {
+            if (keystoreProps['storeFile']) {
+                storeFile     file(keystoreProps['storeFile'])
+                storePassword keystoreProps['storePassword']
+                keyAlias      keystoreProps['keyAlias']
+                keyPassword   keystoreProps['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            debuggable true
+            jniDebuggable true
+        }
+        release {
+            // There is no Java to shrink -- the app is pure NativeActivity --
+            // and the native side is stripped by the NDK toolchain.
+            minifyEnabled false
+            debuggable false
+            jniDebuggable false
+            signingConfig keystoreProps['storeFile'] ? signingConfigs.release : null
+        }
+    }
+
+    lint {
+        // The app is pure NativeActivity with no Java or Kotlin sources, so
+        // Android Lint has nothing to analyse -- and its report task reads
+        // the staged assets directory, which only creates a spurious
+        // task-ordering conflict with stageAssets.
+        checkReleaseBuilds false
+        abortOnError false
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+}
+
+// --------------------------------------------------------------------
+//	Data payload staging
+// --------------------------------------------------------------------
+//
+// Copies data/ into the assets folder and writes a manifest listing every
+// file, prefixed with a version stamp. The runtime uses that manifest to
+// unpack, and the stamp to decide whether an already-extracted tree is
+// still current -- so a rebuild with changed data re-extracts on launch.
+
+tasks.register('stageAssets') {
+    inputs.dir dataDir
+    outputs.dir assetsDir
+
+    doLast {
+        def target = new File(assetsDir, 'data')
+        target.deleteDir()
+        target.mkdirs()
+
+        def entries = []
+        dataDir.eachFileRecurse { f ->
+            if (!f.isFile()) return
+            def rel = dataDir.toPath().relativize(f.toPath()).toString()
+                            .replace('\\', '/')
+            // Autotools fragments are not game data.
+            if (rel.endsWith('Makefile.am') || rel.endsWith('Makefile.in')) return
+
+            def dest = new File(target, rel)
+            dest.parentFile.mkdirs()
+            dest.bytes = f.bytes
+            entries << "data/${rel}"
+        }
+        entries.sort()
+
+        // Any change to the file list or total size invalidates the stamp.
+        def totalSize = entries.inject(0L) { acc, e ->
+            acc + new File(assetsDir, e).length()
+        }
+        def stamp = "${project.android.defaultConfig.versionName}-${entries.size()}-${totalSize}"
+
+        new File(assetsDir, 'data_manifest.txt').text =
+            ([stamp] + entries).join('\n') + '\n'
+
+        logger.lifecycle("staged ${entries.size()} data files (${totalSize} bytes), stamp ${stamp}")
+    }
+}
+
+// Anything that reads the assets directory has to run after it is staged,
+// or Gradle rejects the build for an undeclared dependency.
+tasks.configureEach { task ->
+    if (task.name == 'stageAssets') return
+
+    def readsAssets =
+        (task.name.startsWith('merge') && task.name.endsWith('Assets')) ||
+        task.name.toLowerCase().contains('lint') ||
+        task.name.startsWith('package')
+
+    if (readsAssets) task.dependsOn 'stageAssets'
+}

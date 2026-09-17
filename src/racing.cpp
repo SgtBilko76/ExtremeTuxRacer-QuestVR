@@ -364,13 +364,13 @@ static void CalcTrickControls(CControl *ctrl, float time_step, bool airborne) {
 //					loop
 // ====================================================================
 
-void CRacing::Loop(float time_step) {
+// Everything that advances the world by one tick. Runs exactly once per
+// frame, no matter how many eyes are then drawn from it.
+void CRacing::Update(float time_step) {
 	CControl *ctrl = g_game.player->ctrl;
 	double ycoord = Course.FindYCoord(ctrl->cpos.x, ctrl->cpos.z);
 	bool airborne = (bool)(ctrl->cpos.y > (ycoord + JUMP_MAX_START_HEIGHT));
 
-	ClearRenderContext();
-	Env.SetupFog();
 	CalcTrickControls(ctrl, time_step, airborne);
 
 	if (!g_game.finish) CalcSteeringControls(ctrl, time_step);
@@ -384,27 +384,47 @@ void CRacing::Loop(float time_step) {
 	if (g_game.finish) IncCameraDistance(time_step);
 	update_view(ctrl, time_step);
 	UpdateTrackmarks(ctrl);
-
 	SetupViewFrustum(ctrl);
+
+	if (param.perf_level > 2) update_particles(time_step);
+	UpdateWind(time_step);
+	UpdateSnow(time_step, ctrl);
+
+	if (g_game.finish == false) g_game.time += time_step;
+}
+
+// Draws the world from whichever viewpoint is currently bound. Called once
+// per eye in VR, once per frame otherwise, and must not mutate any game
+// state -- doing so would apply it twice.
+void CRacing::Render(int eye) {
+	CControl *ctrl = g_game.player->ctrl;
+
+	// Establishes this eye's projection; in the flat build this is the
+	// ordinary window perspective.
+	Reshape(Winsys.resolution.width, Winsys.resolution.height);
+	ClearRenderContext();
+	Env.SetupFog();
+
+	// Reload the camera for this eye. The viewpoint itself was already
+	// computed by Update(); only the per-eye offset differs.
+	setup_view_matrix(ctrl);
+
 	if (sky) Env.DrawSkybox(ctrl->viewpos);
 	if (fog) Env.DrawFog();
 	Env.SetupLight();
 	if (terr) RenderCourse();
 	DrawTrackmarks();
 	if (trees) DrawTrees();
-	if (param.perf_level > 2) {
-		update_particles(time_step);
-		draw_particles(ctrl);
-	}
+	if (param.perf_level > 2) draw_particles(ctrl);
 	g_game.character->shape->Draw();
-	UpdateWind(time_step);
-	UpdateSnow(time_step, ctrl);
 	DrawSnow(ctrl);
 	DrawHud(ctrl);
+}
 
-	Reshape(Winsys.resolution.width, Winsys.resolution.height);
+void CRacing::Loop(float time_step) {
+	Update(time_step);
+	Render(0);
 	Winsys.SwapBuffers();
-	if (g_game.finish == false) g_game.time += time_step;
 }
 
 void CRacing::Exit() {

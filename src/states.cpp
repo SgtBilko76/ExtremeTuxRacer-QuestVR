@@ -20,6 +20,10 @@ GNU General Public License for more details.
 #endif
 
 #include "states.h"
+#ifdef ETR_ANDROID
+#include "vr/vr.h"
+#include <android/log.h>
+#endif
 #include "ogl.h"
 #include "winsys.h"
 
@@ -120,5 +124,64 @@ void State::Manager::CallLoopFunction() {
 
 	g_game.time_step = std::max(0.0001f, timer.getElapsedTime().asSeconds());
 	timer.restart();
+
+#ifdef ETR_ANDROID
+	if (vr::IsActive()) {
+		VRLoop(g_game.time_step);
+		return;
+	}
+#endif
+
 	current->Loop(g_game.time_step);
 }
+
+#ifdef ETR_ANDROID
+void State::Manager::VRLoop(float time_step) {
+	if (vr::IsExitRequested()) {
+		quit = true;
+		return;
+	}
+
+	// Menu screens get d-pad style navigation from the thumbstick; the
+	// race gets steering. This has to be decided before BeginFrame, which
+	// is what syncs the controller state.
+	vr::SetUiNavigation(!current->SupportsStereo());
+
+	// BeginFrame also pumps XR events and syncs controller input, so it
+	// still has to run on the ticks where the runtime tells us not to
+	// draw (headset off the head, system menu up, ...).
+	if (!vr::BeginFrame()) {
+		vr::EndFrame();
+		return;
+	}
+
+	// A heartbeat, so the log distinguishes "rendering happily" from
+	// "stalled somewhere" without needing eyes on the headset.
+	static int frame_count = 0;
+	if (++frame_count % 180 == 1) {
+		__android_log_print(ANDROID_LOG_INFO, "ETRVR",
+		                    "frame %d, %s path, dt=%.1f ms", frame_count,
+		                    current->SupportsStereo() ? "stereo" : "screen",
+		                    time_step * 1000.f);
+	}
+
+	if (current->SupportsStereo()) {
+		// Simulation runs once for the frame, drawing runs once per eye.
+		current->Update(time_step);
+		for (int eye = 0; eye < vr::NumEyes(); eye++) {
+			vr::BeginEye(eye);
+			current->Render(eye);
+			vr::EndEye(eye);
+		}
+	} else {
+		// Menu screens draw themselves monoscopically into the quad-layer
+		// swapchain, unchanged.
+		if (vr::BeginScreen()) {
+			current->Loop(time_step);
+			vr::EndScreen();
+		}
+	}
+
+	vr::EndFrame();
+}
+#endif

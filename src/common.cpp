@@ -21,6 +21,15 @@ GNU General Public License for more details.
 
 #include "common.h"
 #include "spx.h"
+
+#ifdef ETR_ANDROID
+// Everything the game reports about missing data or failed loads goes
+// through Message(), and stdout goes nowhere in a NativeActivity.
+#include <android/log.h>
+#define ETR_LOG(...) __android_log_print(ANDROID_LOG_INFO, "ETRGame", __VA_ARGS__)
+#else
+#define ETR_LOG(...) ((void)0)
+#endif
 #include <sys/stat.h>
 #include <iostream>
 #include <cerrno>
@@ -141,17 +150,21 @@ void Message(const char *msg, const char *desc) {
 	std::string aa = msg;
 	std::string bb = desc;
 	std::cout << aa << "  " << bb << '\n';
+	ETR_LOG("%s %s", aa.c_str(), bb.c_str());
 	msg_list.Add(aa + bb);
 }
 
 void Message(const char *msg) {
 	std::cout << msg << '\n';
-	if (*msg != 0)
+	if (*msg != 0) {
+		ETR_LOG("%s", msg);
 		msg_list.Add(msg);
+	}
 }
 
 void Message(const std::string& a, const std::string& b) {
 	std::cout << a << ' ' << b << std::endl;
+	ETR_LOG("%s %s", a.c_str(), b.c_str());
 	msg_list.Add(a + b);
 }
 

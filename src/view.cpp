@@ -21,6 +21,9 @@ GNU General Public License for more details.
 
 #include "view.h"
 #include "course.h"
+#ifdef ETR_ANDROID
+#include "vr/vr.h"
+#endif
 #include "ogl.h"
 #include "physics.h"
 #include "winsys.h"
@@ -124,6 +127,31 @@ void interpolate_view_frame(const TVector3d& up1, const TVector3d& dir1,
 	p_dir2->z = -cob_mat2[2][2];
 }
 
+#ifdef ETR_ANDROID
+// Composes the tracked head/eye pose onto the game's chase-camera matrix:
+// V_eye = eyeOffset * V_chase. Outside an eye render this is the identity,
+// so the flat path is untouched.
+static TMatrix<4, 4> ApplyVREye(const TMatrix<4, 4>& view_mat) {
+	TMatrix<4, 4> eye;
+	if (vr::CurrentEye() < 0 || !vr::GetEyeViewOffset(eye))
+		return view_mat;
+
+	TMatrix<4, 4> r;
+	for (int c = 0; c < 4; c++) {
+		for (int row = 0; row < 4; row++) {
+			double s = 0.0;
+			for (int k = 0; k < 4; k++) s += eye[k][row] * view_mat[c][k];
+			r[c][row] = s;
+		}
+	}
+	return r;
+}
+#else
+static inline const TMatrix<4, 4>& ApplyVREye(const TMatrix<4, 4>& m) {
+	return m;
+}
+#endif
+
 void setup_view_matrix(CControl *ctrl, bool save_mat) {
 	TVector3d view_z = -ctrl->viewdir;
 	TVector3d view_x = CrossProduct(ctrl->viewup, view_z);
@@ -153,7 +181,7 @@ void setup_view_matrix(CControl *ctrl, bool save_mat) {
 	if (save_mat) {
 		stationary_matrix = view_mat;
 	}
-	glLoadMatrix(view_mat);
+	glLoadMatrix(ApplyVREye(view_mat));
 }
 
 TVector3d MakeViewVector() {
@@ -167,7 +195,7 @@ TVector3d MakeViewVector() {
 
 void update_view(CControl *ctrl, float dt) {
 	if (is_stationary) {
-		glLoadMatrix(stationary_matrix);
+		glLoadMatrix(ApplyVREye(stationary_matrix));
 		return;
 	}
 
@@ -325,6 +353,24 @@ void SetupViewFrustum(const CControl *ctrl) {
 	double far_dist = param.forward_clip_distance;
 	double half_fov = ANGLES_TO_RADIANS(param.fov * 0.5);
 	double half_fov_horiz = std::atan(std::tan(half_fov) * aspect);
+
+#ifdef ETR_ANDROID
+	// The culling frustum is built in chase-camera space, but the player
+	// can turn their head freely inside it. Using the eye field of view
+	// alone would cull scenery that is plainly visible after a glance to
+	// the side, so a generous slack angle is added on top.
+	{
+		static const double VR_CULL_SLACK = ANGLES_TO_RADIANS(45.0);
+		double vr_half_v = 0.0, vr_half_h = 0.0;
+		vr::GetCullHalfFov(vr_half_v, vr_half_h);
+		if (vr_half_v > 0.0) {
+			half_fov = std::min(vr_half_v + VR_CULL_SLACK,
+			                    ANGLES_TO_RADIANS(85.0));
+			half_fov_horiz = std::min(vr_half_h + VR_CULL_SLACK,
+			                          ANGLES_TO_RADIANS(85.0));
+		}
+	}
+#endif
 
 	frustum_planes[0] = TPlane(0, 0, 1, near_dist);
 	frustum_planes[1] = TPlane(0, 0, -1, -far_dist);

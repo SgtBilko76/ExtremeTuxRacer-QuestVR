@@ -34,6 +34,49 @@ GNU General Public License for more details.
 #include "regist.h"
 #include "winsys.h"
 
+#ifdef ETR_ANDROID
+#include "loading.h"
+
+namespace {
+
+/** Picks a default player, character and course so the headset build can
+ *  go straight into a race. The menus are drawn as a flat panel in VR but
+ *  are not navigable yet -- there is no pointer to click them with -- so
+ *  until that lands (see the VR menu milestone) this is how the game is
+ *  reachable at all.
+ *
+ *  Called only once every resource list has been loaded, so all of these
+ *  collections are already populated. */
+bool SetupDirectRace() {
+	if (Players.numPlayers() == 0) return false;
+
+	// The same sequence QuitRegistration() performs in regist.cpp. Without
+	// AllocControl the player has no CControl, and the course loader then
+	// dereferences a null ctrl->viewpos.
+	Players.ResetControls();
+	Players.AllocControl(0);
+
+	g_game.player = Players.GetPlayer(0);
+	g_game.start_player = 0;
+	if (g_game.player->ctrl == nullptr) return false;
+
+	if (Char.CharList.empty()) return false;
+	g_game.character = &Char.CharList[0];
+	Char.FreeCharacterPreviews();
+
+	if (!Course.currentCourseList || Course.currentCourseList->size() == 0)
+		return false;
+	g_game.course = &(*Course.currentCourseList)[0];
+	g_game.theme_id = (*Course.currentCourseList)[0].music_theme;
+
+	g_game.mirrorred = false;
+	g_game.game_type = PRACTICING;
+	return true;
+}
+
+}  // namespace
+#endif
+
 CSplashScreen SplashScreen;
 sf::Text* Failure = nullptr;
 sf::String reason;
@@ -95,7 +138,14 @@ void CSplashScreen::Loop(float timestep) {
 			reason += Trans.Text(94) + "\n";
 
 		if (reason.isEmpty())
+#ifdef ETR_ANDROID
+			if (SetupDirectRace())
+				State::manager.RequestEnterState(Loading);
+			else
+				State::manager.RequestEnterState(Regist);
+#else
 			State::manager.RequestEnterState(Regist);
+#endif
 		else { // Failure
 			FT.AutoSizeN(6);
 			int top = AutoYPosN(60);

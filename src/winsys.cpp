@@ -22,6 +22,10 @@ GNU General Public License for more details.
 #include <sys/stat.h>
 
 #include "winsys.h"
+#ifdef ETR_ANDROID
+#include "vr/vr.h"
+#include "platform/platform.h"
+#endif
 #include "course.h"
 #include "game_ctrl.h"
 #include "score.h"
@@ -119,11 +123,35 @@ void CWinsys::SetupVideoMode(int width, int height) {
 }
 
 void CWinsys::Init() {
+#ifdef ETR_ANDROID
+	// There is no resolution to choose on Android: the surface is whatever
+	// the compositor hands us. This size is what the 2D/HUD layout is built
+	// against, and in VR it is the space the overlay is composed in before
+	// being drawn into the (much larger) eye buffers.
+	unsigned int w = 0, h = 0;
+	etr_platform::GetDrawableSize(w, h);
+	if (w == 0 || h == 0) {
+		w = 1280;
+		h = 720;
+	}
+	SetupVideoMode(TScreenRes(w, h));
+#else
 	SetupVideoMode(GetResolution(param.res_type));
+#endif
 }
 
 void CWinsys::KeyRepeat(bool repeat) {
 	window.setKeyRepeatEnabled(repeat);
+}
+
+void CWinsys::SwapBuffers() {
+#ifdef ETR_ANDROID
+	// Under OpenXR the frame is presented by xrEndFrame; presenting the
+	// SDL window as well would be wasted work and would unbind the eye
+	// framebuffer mid-frame.
+	if (vr::IsActive()) return;
+#endif
+	window.display();
 }
 
 void CWinsys::Quit() {

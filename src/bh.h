@@ -26,7 +26,14 @@ GNU General Public License for more details.
 #include <cstddef>
 #include <string>
 
-#include <GL/gl.h>
+#ifdef __ANDROID__
+// On Android the fixed-function entry points below are supplied by our own
+// GLES 3 shim, and <SFML/...> resolves to the compatible subset in
+// src/platform/ rather than to real SFML.
+#	include "gles/gl_compat.h"
+#else
+#	include <GL/gl.h>
+#endif
 #include <SFML/System.hpp>
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
@@ -39,7 +46,11 @@ GNU General Public License for more details.
 #			define OS_WIN32_MINGW
 #		endif
 #	else // Assume Unix platform (Linux, Mac OS X, BSD, ...)
-#		ifdef __APPLE__
+		// __ANDROID__ must be tested before __linux__: the NDK defines both,
+		// and Android is emphatically not a desktop Linux target here.
+#		ifdef __ANDROID__
+#			define OS_ANDROID
+#		elif defined(__APPLE__)
 #			define OS_MAC
 #		elif defined(__linux__)
 #			define OS_LINUX
@@ -61,6 +72,12 @@ GNU General Public License for more details.
 #elif defined OS_WIN32_MINGW
 #	include <dirent.h>
 #	include <GL/glext.h>
+#	define SEP "/"
+#elif defined OS_ANDROID
+#	include <unistd.h>
+#	include <sys/types.h>
+#	include <dirent.h>
+#	include <sys/time.h>
 #	define SEP "/"
 #else // Assume Unix platform (Linux, Mac OS X, BSD, ...)
 #	include <unistd.h>

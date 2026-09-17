@@ -45,6 +45,10 @@ Then edit the below functions:
 #include <sstream>
 #include <sys/stat.h>
 
+#ifdef OS_ANDROID
+#include "platform/platform.h"
+#endif
+
 TParam param;
 
 
@@ -271,6 +275,17 @@ void InitConfig() {
 	param.config_dir = "config";
 	param.data_dir = "data";
 	param.save_dir = "data";
+	param.configfile = param.config_dir + SEP "options.txt";
+	if (FileExists(param.configfile)) {
+		config_exist = 1;
+	}
+#elif defined (OS_ANDROID)
+	// Everything lives under the app's internal storage: the data tree is
+	// unpacked there from the APK on first run, and the config is written
+	// alongside it. See src/platform/android_assets.cpp.
+	param.config_dir = etr_platform::GetInternalDataPath();
+	param.data_dir = param.config_dir + SEP "data";
+	param.save_dir = param.config_dir;
 	param.configfile = param.config_dir + SEP "options.txt";
 	if (FileExists(param.configfile)) {
 		config_exist = 1;

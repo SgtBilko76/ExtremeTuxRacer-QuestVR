@@ -1,0 +1,10 @@
+build/
+.cxx/
+.gradle/
+local.properties
+src/main/assets/
+jniLibs/
+
+# Signing material must never be committed.
+keystore.properties
+*.keystore

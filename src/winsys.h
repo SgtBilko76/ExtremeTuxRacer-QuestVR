@@ -55,7 +55,7 @@ public:
 	void KeyRepeat(bool repeat);
 	void PrintJoystickInfo() const;
 	void ShowCursor(bool visible) { window.setMouseCursorVisible(visible); }
-	void SwapBuffers() { window.display(); }
+	void SwapBuffers();
 	void Quit();
 	void Terminate();
 	void draw(const sf::Drawable& drawable, const sf::RenderStates& states = sf::RenderStates::Default) { window.draw(drawable, states); }

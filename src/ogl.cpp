@@ -22,7 +22,12 @@ GNU General Public License for more details.
 #include "ogl.h"
 #include "spx.h"
 #include "winsys.h"
+#ifdef ETR_ANDROID
+#include "vr/vr.h"
+#endif
+#ifndef __ANDROID__
 #include <GL/glu.h>
+#endif
 #include <stack>
 #include <climits> // INT_MAX
 
@@ -167,10 +172,27 @@ void Setup2dScene() {
 }
 
 void Reshape(int w, int h) {
+	double far_clip_dist = param.forward_clip_distance + FAR_CLIP_FUDGE_AMOUNT;
+
+#ifdef ETR_ANDROID
+	// While rendering an eye the runtime dictates the projection: it is
+	// asymmetric and differs per eye, so neither param.fov nor the window
+	// aspect ratio applies, and the viewport is already set by vr::BeginEye.
+	{
+		TMatrix<4, 4> proj;
+		if (vr::CurrentEye() >= 0 &&
+		    vr::GetEyeProjection(NEAR_CLIP_DIST, far_clip_dist, proj)) {
+			glMatrixMode(GL_PROJECTION);
+			glLoadMatrix(proj);
+			glMatrixMode(GL_MODELVIEW);
+			return;
+		}
+	}
+#endif
+
 	glViewport(0, 0, (GLint) w, (GLint) h);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	double far_clip_dist = param.forward_clip_distance + FAR_CLIP_FUDGE_AMOUNT;
 	gluPerspective(param.fov, (double)w/h, NEAR_CLIP_DIST, far_clip_dist);
 	glMatrixMode(GL_MODELVIEW);
 }

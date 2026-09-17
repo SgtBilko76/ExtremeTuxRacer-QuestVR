@@ -391,6 +391,14 @@ bool CSPList::Load(const std::string &filepath) {
 			std::size_t npos = line.rfind('\n');
 			if (npos != std::string::npos) SDeleteN(line, npos, 1);
 
+			// Data files checked out on Windows have CRLF endings, and only
+			// Windows' text-mode translation hides that. Everywhere else the
+			// carriage return survives into the parsed values, silently
+			// corrupting whichever tag happens to be last on its line --
+			// [file] in textures.lst and fonts.lst, for instance, which then
+			// names a file that cannot be opened.
+			if (!line.empty() && line.back() == '\r') line.pop_back();
+
 			bool valid = true;
 			if (line.empty()) valid = false;	// empty line
 			else if (line[0] == '#') valid = false;	// comment line

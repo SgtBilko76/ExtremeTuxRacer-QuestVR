@@ -24,6 +24,12 @@ GNU General Public License for more details.
 class CRacing : public State {
 	void Enter();
 	void Loop(float time_step);
+
+	// Racing is the one screen drawn in true stereo: simulation runs once
+	// per frame, drawing runs once per eye.
+	bool SupportsStereo() const override { return true; }
+	void Update(float time_step) override;
+	void Render(int eye) override;
 	void Keyb(sf::Keyboard::Key key, bool release, int x, int y);
 	void Jaxis(int axis, float value);
 	void Jbutt(int button, bool pressed);

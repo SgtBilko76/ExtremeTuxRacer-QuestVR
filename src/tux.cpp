@@ -30,7 +30,9 @@ still shaped with spheres.
 #include "textures.h"
 #include "course.h"
 #include "physics.h"
+#ifndef __ANDROID__
 #include <GL/glu.h>
+#endif
 #include <algorithm>
 
 #define MAX_ARM_ANGLE2 30.0

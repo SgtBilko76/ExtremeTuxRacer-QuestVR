@@ -1,0 +1,48 @@
+# ---------------------------------------------------------------------
+# Android / Quest VR port
+# ---------------------------------------------------------------------
+
+# Gradle and CMake build output
+build/outputs/
+**/.cxx/
+**/.gradle/
+android/build/
+vr-probe/build/
+
+# Machine-specific SDK location
+local.properties
+
+# Signing material must never be committed. Losing it means published
+# APKs can no longer be updated in place, so back it up out of band.
+*.keystore
+*.jks
+keystore.properties
+
+# The data payload is copied into assets by the stageAssets Gradle task.
+android/src/main/assets/
+vr-probe/src/main/assets/
+
+# ---------------------------------------------------------------------
+# Upstream autotools build artefacts
+# ---------------------------------------------------------------------
+Makefile
+Makefile.in
+/configure
+/config.log
+/config.status
+/aclocal.m4
+/autom4te.cache/
+/etr_config.h
+/etr_config.h.in
+/stamp-h1
+/depcomp
+/install-sh
+/missing
+/compile
+/test-driver
+*.o
+*.lo
+*.la
+.deps/
+.libs/
+/src/etr

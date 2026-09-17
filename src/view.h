@@ -24,6 +24,11 @@ GNU General Public License for more details.
 void set_view_mode(CControl *ctrl, TViewMode mode);
 void update_view(CControl *ctrl, float dt);
 
+/** Rebuilds and loads the camera matrix from the viewpoint update_view()
+ *  already computed. Stereo rendering calls this once per eye, so that the
+ *  camera simulation still runs only once per frame. */
+void setup_view_matrix(CControl *ctrl, bool save_mat = false);
+
 void SetStationaryCamera(bool stat);  // 0 follow, 1 stationary
 void IncCameraDistance(float timestep);
 void SetCameraDistance(double val);

@@ -105,6 +105,7 @@ private:
 
     bool m_has_srgb_write_control = false;
     bool m_has_refresh_rate_ext = false;
+    bool m_has_bd_controller_ext = false;
     bool m_initialized = false;
 
     /** Layers submitted this frame. */
@@ -149,6 +150,7 @@ public:
     bool isInitialized() const          { return m_initialized; }
     bool isSessionRunning() const       { return m_session_running; }
     bool isExitRequested() const        { return m_exit_requested; }
+    bool hasBDControllerInteraction() const { return m_has_bd_controller_ext; }
 
     void pollEvents();
 

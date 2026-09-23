@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Pico overlay, merged over src/main/AndroidManifest.xml for the pico
+    flavor. The game code is shared: the Pico controller profiles are
+    enabled at runtime whenever XR_BD_controller_interaction is offered.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+        The Khronos loader finds the active runtime through these brokers.
+        They normally arrive with the loader AAR's manifest, but the loader
+        is vendored here as a bare .so, and from targetSdk 30 package
+        visibility hides the providers unless they are declared.
+    -->
+    <queries>
+        <provider android:authorities="org.khronos.openxr.runtime_broker;org.khronos.openxr.system_runtime_broker" />
+        <intent>
+            <action android:name="org.khronos.openxr.OpenXRRuntimeService" />
+        </intent>
+        <intent>
+            <action android:name="org.khronos.openxr.OpenXRApiLayerService" />
+        </intent>
+    </queries>
+
+    <!-- Meta-only; meaningless on Pico OS. -->
+    <uses-feature android:name="oculus.software.handtracking"
+                  tools:node="remove" />
+
+    <application>
+        <!-- Tells Pico OS to launch this as an immersive VR app -->
+        <meta-data android:name="pvr.app.type" android:value="vr" />
+
+        <meta-data android:name="com.oculus.supportedDevices" tools:node="remove" />
+        <meta-data android:name="com.oculus.vr.focusaware" tools:node="remove" />
+    </application>
+</manifest>

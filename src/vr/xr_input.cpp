@@ -19,6 +19,7 @@ sf::Event stream the game already handles, so no game code changes.
 #include <cmath>
 #include <ctime>
 #include <cstring>
+#include <vector>
 
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO,  "ETRInput", __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "ETRInput", __VA_ARGS__)
@@ -197,16 +198,33 @@ bool InitInput(XRManager* manager) {
 		{ g.menu,   path("/user/hand/left/input/menu/click") },
 	};
 
-	XrInteractionProfileSuggestedBinding suggested{
-		XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING};
-	suggested.interactionProfile =
-	    path("/interaction_profiles/oculus/touch_controller");
-	suggested.suggestedBindings = bindings;
-	suggested.countSuggestedBindings =
-	    sizeof(bindings) / sizeof(bindings[0]);
+	// Meta Touch and every Pico controller share the same layout (A/B on
+	// the right, X/Y and menu on the left), so one binding list serves all
+	// of them. The Pico profiles exist only with XR_BD_controller_interaction,
+	// and pico4s (Pico 4 Ultra) only from its spec version 2, so a runtime
+	// rejecting one is expected and skipped rather than fatal.
+	std::vector<const char*> profiles;
+	profiles.push_back("/interaction_profiles/oculus/touch_controller");
+	if (manager->hasBDControllerInteraction()) {
+		profiles.push_back("/interaction_profiles/bytedance/pico4_controller");
+		profiles.push_back("/interaction_profiles/bytedance/pico4s_controller");
+		profiles.push_back("/interaction_profiles/bytedance/pico_neo3_controller");
+	}
 
-	if (!check(xrSuggestInteractionProfileBindings(g.instance, &suggested),
-	           "xrSuggestInteractionProfileBindings"))
+	int accepted = 0;
+	for (const char* profile : profiles) {
+		XrInteractionProfileSuggestedBinding suggested{
+			XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING};
+		suggested.interactionProfile = path(profile);
+		suggested.suggestedBindings = bindings;
+		suggested.countSuggestedBindings =
+		    sizeof(bindings) / sizeof(bindings[0]);
+
+		if (check(xrSuggestInteractionProfileBindings(g.instance, &suggested),
+		          profile))
+			accepted++;
+	}
+	if (accepted == 0)
 		return false;
 
 	XrSessionActionSetsAttachInfo ai{
@@ -218,7 +236,7 @@ bool InitInput(XRManager* manager) {
 		return false;
 
 	g.ready = true;
-	LOGI("Touch controller bindings attached");
+	LOGI("Controller bindings attached (%d profiles)", accepted);
 	return true;
 }
 

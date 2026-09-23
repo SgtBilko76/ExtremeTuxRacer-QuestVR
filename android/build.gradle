@@ -1,5 +1,5 @@
 // --------------------------------------------------------------------
-// Extreme Tux Racer -- Meta Quest APK
+// Extreme Tux Racer -- Meta Quest / Pico APK
 //
 // The native side is built by the CMakeLists.txt at the repository root,
 // which compiles the game, the GLES 3 compatibility shim, the SFML
@@ -48,6 +48,19 @@ android {
                           '-DANDROID_ARM_NEON=TRUE'
                 cppFlags '-O2'
             }
+        }
+    }
+
+    // One native build serves both headsets; the flavors differ only in
+    // their manifest (see src/pico/AndroidManifest.xml).
+    flavorDimensions = ['headset']
+    productFlavors {
+        quest {
+            dimension 'headset'
+        }
+        pico {
+            dimension 'headset'
+            versionNameSuffix '-pico'
         }
     }
 

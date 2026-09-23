@@ -94,9 +94,14 @@ bool BeginFrame() {
 	xr->pollEvents();
 	if (!xr->isSessionRunning()) return false;
 
-	g_frame_live = xr->beginFrame();
+	// A begun frame has to be ended even when the runtime says not to
+	// render (headset off, system menu, the SYNCHRONIZED state Pico passes
+	// through at startup). Otherwise xrWaitFrame is never reached again
+	// and the app stalls, spinning, until the session stops.
+	const bool render = xr->beginFrame();
+	g_frame_live = xr->isFrameBegun();
 	if (g_frame_live) UpdateInput();
-	return g_frame_live && xr->shouldRender();
+	return render;
 }
 
 void EndFrame() {

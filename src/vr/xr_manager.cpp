@@ -201,17 +201,24 @@ bool XRManager::createInstance()
         enabled.push_back(XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME);
         m_has_refresh_rate_ext = true;
     }
+    // Pico's controllers only map onto their own interaction profiles,
+    // which this extension defines; see xr_input.cpp.
+    if (has_ext(XR_BD_CONTROLLER_INTERACTION_EXTENSION_NAME))
+    {
+        enabled.push_back(XR_BD_CONTROLLER_INTERACTION_EXTENSION_NAME);
+        m_has_bd_controller_ext = true;
+    }
     for (unsigned i = 0; i < ext_count; i++)
         LOGD("Runtime extension: %s", exts[i].extensionName);
 
     XrInstanceCreateInfo ci = {XR_TYPE_INSTANCE_CREATE_INFO};
-    strncpy(ci.applicationInfo.applicationName, "SuperTuxKart",
+    strncpy(ci.applicationInfo.applicationName, "Extreme Tux Racer",
             XR_MAX_APPLICATION_NAME_SIZE - 1);
     ci.applicationInfo.applicationVersion = 1;
-    strncpy(ci.applicationInfo.engineName, "SuperTuxKart",
+    strncpy(ci.applicationInfo.engineName, "Extreme Tux Racer",
             XR_MAX_ENGINE_NAME_SIZE - 1);
     ci.applicationInfo.engineVersion = 1;
-    // Target the 1.0 API so any Quest runtime accepts us.
+    // Target the 1.0 API so any Quest or Pico runtime accepts us.
     ci.applicationInfo.apiVersion = XR_MAKE_VERSION(1, 0, 0);
     ci.enabledExtensionCount = (uint32_t)enabled.size();
     ci.enabledExtensionNames = enabled.data();
